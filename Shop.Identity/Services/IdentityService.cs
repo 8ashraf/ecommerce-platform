@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+using System.Security.Cryptography;//RandomNumberGeneratorداله ال
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Shop.Identity.Entities;
@@ -9,20 +9,20 @@ public class IdentityService(AppDbContext db)
 {
     public async Task StartRegistrationAsync(string phone)
     {
-        var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+        var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();//بدأ من 100000 لحد 999999 ارقام من 6
 
         db.OtpChallenges.Add(new OtpChallenge
         {
             Phone = phone,
             CodeHash = Hash(code),
-            ExpiresAt = DateTime.UtcNow.AddMinutes(5)
+            ExpiresAt = DateTime.UtcNow.AddMinutes(5)// بنتهي بعد 5 دقايق
         });
         await db.SaveChangesAsync();
 
         Console.WriteLine($"[DEV OTP] {phone} => {code}");
     }
 
-    public async Task<Account?> VerifyAsync(string phone, string code)
+    public async Task<Account?> VerifyAsync(string phone, string code)// بتأكد من صحة الكود واذا صح بيرجع الحساب واذا غلط بيرجع null
     {
         var challenge = await db.OtpChallenges
             .Where(c => c.Phone == phone && !c.Consumed && c.ExpiresAt > DateTime.UtcNow)
