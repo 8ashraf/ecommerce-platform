@@ -14,7 +14,7 @@ public class TokenService(IConfiguration config)//بتتقرأ من ملف ال�
         var key = new SymmetricSecurityKey(//     قراءة المفتاح من الإعدادات     تحويله إلى Bytes     إنشاء كائن يمثل مفتاح التوقيع
             Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
 
-        var claims = new List<Claim>
+    var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),//sub: Subject claim, يمثل معرف المستخدم
             new("principal_type", "Human"),//principal_type: نوع الكيان الممثل للمستخدم (هنا "Human" يعني إنسان)

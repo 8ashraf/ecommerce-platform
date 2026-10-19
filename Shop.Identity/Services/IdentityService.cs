@@ -63,7 +63,7 @@ public class IdentityService(AppDbContext db, TokenService tokens)
         }
 
         await db.SaveChangesAsync();
-        return new VerifyResult(account, tokens.CreateAccessToken(user, account));
+        return new VerifyResult(account, tokens.CreateAccessToken(user, account));//بترجع كائن VerifyResult يحتوي على الحساب والتوكن اللي اتعمل
     }
 
     private static string Hash(string s) =>

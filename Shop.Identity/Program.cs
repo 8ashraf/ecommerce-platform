@@ -1,29 +1,74 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Shop.Identity;
 using Shop.Identity.Services;
 
-var config = new ConfigurationBuilder()
-    .SetBasePath(AppContext.BaseDirectory)
-    .AddJsonFile("appsettings.json")
-    .Build();
+var builder = WebApplication.CreateBuilder(args);
 
-await using var db = new AppDbContext();
-var identity = new IdentityService(db, new TokenService(config));
+builder.Services.AddDbContext<AppDbContext>(o =>
+    o.UseNpgsql(builder.Configuration["constr"]));
+builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<IdentityService>();
 
-Console.Write("Phone: ");
-var phone = Console.ReadLine()!;
-await identity.StartRegistrationAsync(phone);
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(o =>
+    {
+        o.MapInboundClaims = false; // نحافظ على أسماء الـ claims زي ما هي (sub...)
+        o.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+    });
+builder.Services.AddAuthorization();
 
-Console.Write("OTP: ");
-var code = Console.ReadLine()!;
-var result = await identity.VerifyAsync(phone, code);
+var app = builder.Build();
 
-if (result is null)
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapPost("/identity/register", async (RegisterRequest req, IdentityService svc) =>
 {
-    Console.WriteLine("فشل التحقق");
-}
-else
+    if (string.IsNullOrWhiteSpace(req.Phone))
+        return Results.BadRequest(new { error = "Phone is required" });
+
+    await svc.StartRegistrationAsync(req.Phone);
+    return Results.Ok(new { message = "OTP sent" });
+});
+
+app.MapPost("/identity/verify", async (VerifyRequest req, IdentityService svc) =>
 {
-    Console.WriteLine($"نجح. AccountId = {result.Account.Id}, Type = {result.Account.Type}");
-    Console.WriteLine($"TOKEN: {result.AccessToken}");
-}
+    var result = await svc.VerifyAsync(req.Phone, req.Code);
+    return result is null
+        ? Results.Unauthorized()
+        : Results.Ok(new
+        {
+            accountId = result.Account.Id,
+            type = result.Account.Type.ToString(),
+            accessToken = result.AccessToken
+        });
+});
+
+// endpoint محمي: بيرجّع بيانات المستخدم الحالي من الـ token
+app.MapGet("/me", (ClaimsPrincipal user) => Results.Ok(new
+{
+    userId = user.FindFirstValue("sub"),
+    accountId = user.FindFirstValue("account_id"),
+    accountType = user.FindFirstValue("account_type")
+})).RequireAuthorization();
+
+app.Run();
+
+record RegisterRequest(string Phone);
+record VerifyRequest(string Phone, string Code);
