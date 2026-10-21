@@ -3,11 +3,13 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Shop.Identity;
 using Shop.Identity.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---------- الخدمات ----------
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseNpgsql(builder.Configuration["constr"]));
 builder.Services.AddScoped<TokenService>();
@@ -33,11 +35,45 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
+// ---------- Swagger ----------
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(o =>
+{
+    o.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "الصق الـ accessToken هنا (من غير كلمة Bearer)"
+    });
+    o.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
 var app = builder.Build();
+
+// ---------- الـ Middleware (الترتيب مهم) ----------
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ---------- الـ Endpoints ----------
 app.MapPost("/identity/register", async (RegisterRequest req, IdentityService svc) =>
 {
     if (string.IsNullOrWhiteSpace(req.Phone))
