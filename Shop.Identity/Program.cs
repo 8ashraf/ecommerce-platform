@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using System.Text;
+﻿using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -14,6 +13,8 @@ builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseNpgsql(builder.Configuration["constr"]));
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<IdentityService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentPrincipal, CurrentPrincipal>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -97,11 +98,11 @@ app.MapPost("/identity/verify", async (VerifyRequest req, IdentityService svc) =
 });
 
 // endpoint محمي: بيرجّع بيانات المستخدم الحالي من الـ token
-app.MapGet("/me", (ClaimsPrincipal user) => Results.Ok(new
+app.MapGet("/me", (ICurrentPrincipal me) => Results.Ok(new
 {
-    userId = user.FindFirstValue("sub"),
-    accountId = user.FindFirstValue("account_id"),
-    accountType = user.FindFirstValue("account_type")
+    userId = me.UserId,
+    accountId = me.AccountId,
+    accountType = me.AccountType
 })).RequireAuthorization();
 
 app.Run();
