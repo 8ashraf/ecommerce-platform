@@ -8,4 +8,7 @@ public class User
     public string? PasswordHash { get; set; }
     public bool PhoneVerified { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public List<Account> Accounts { get; set; } = new();//عشان اعمل علاقة بين اليوزر والحسابات بتاعته
+    public List<OrganizationMember> Memberships { get; set; } = new();//عشان اعمل علاقة بين اليوزر والمنظمات اللي هو عضو فيها    
 }

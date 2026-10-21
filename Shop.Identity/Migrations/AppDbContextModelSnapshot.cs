@@ -77,6 +77,8 @@ namespace Shop.Identity.Migrations
 
                     b.HasKey("OrgId", "UserId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("OrganizationMembers", "identity");
                 });
 
@@ -136,6 +138,48 @@ namespace Shop.Identity.Migrations
                         .IsUnique();
 
                     b.ToTable("Users", "identity");
+                });
+
+            modelBuilder.Entity("Shop.Identity.Entities.Account", b =>
+                {
+                    b.HasOne("Shop.Identity.Entities.User", "User")
+                        .WithMany("Accounts")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Shop.Identity.Entities.OrganizationMember", b =>
+                {
+                    b.HasOne("Shop.Identity.Entities.Organization", "Org")
+                        .WithMany("Members")
+                        .HasForeignKey("OrgId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Shop.Identity.Entities.User", "User")
+                        .WithMany("Memberships")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Org");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Shop.Identity.Entities.Organization", b =>
+                {
+                    b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("Shop.Identity.Entities.User", b =>
+                {
+                    b.Navigation("Accounts");
+
+                    b.Navigation("Memberships");
                 });
 #pragma warning restore 612, 618
         }
