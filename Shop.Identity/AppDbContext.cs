@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
     public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -38,5 +39,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         .WithMany(u => u.Memberships)
         .HasForeignKey(m => m.UserId)
         .OnDelete(DeleteBehavior.Restrict);
+
+        b.Entity<RefreshToken>().HasIndex(r => r.TokenHash).IsUnique();
     }
 }

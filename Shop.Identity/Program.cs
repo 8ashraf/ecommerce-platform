@@ -17,7 +17,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentPrincipal, CurrentPrincipal>();
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)//بنستخدم الـ JWT Bearer Authentication
     .AddJwtBearer(o =>
     {
         o.MapInboundClaims = false; // نحافظ على أسماء الـ claims زي ما هي (sub...)
@@ -47,7 +47,7 @@ builder.Services.AddSwaggerGen(o =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "الصق الـ accessToken هنا (من غير كلمة Bearer)"
+        Description = "الصق الـ accessToken هنا (من غير كلمة Bearer ومن غير تنصيص)"
     });
     o.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
@@ -93,8 +93,27 @@ app.MapPost("/identity/verify", async (VerifyRequest req, IdentityService svc) =
         {
             accountId = result.Account.Id,
             type = result.Account.Type.ToString(),
-            accessToken = result.AccessToken
+            accessToken = result.AccessToken,
+            refreshToken = result.RefreshToken
         });
+});
+
+app.MapPost("/identity/refresh", async (RefreshRequest req, IdentityService svc) =>
+{
+    var result = await svc.RefreshAsync(req.RefreshToken);
+    return result is null
+        ? Results.Unauthorized()
+        : Results.Ok(new
+        {
+            accessToken = result.AccessToken,
+            refreshToken = result.RefreshToken
+        });
+});
+
+app.MapPost("/identity/logout", async (RefreshRequest req, IdentityService svc) =>
+{
+    await svc.LogoutAsync(req.RefreshToken);
+    return Results.NoContent();
 });
 
 // endpoint محمي: بيرجّع بيانات المستخدم الحالي من الـ token
@@ -109,3 +128,4 @@ app.Run();
 
 record RegisterRequest(string Phone);
 record VerifyRequest(string Phone, string Code);
+record RefreshRequest(string RefreshToken);

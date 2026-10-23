@@ -12,7 +12,5 @@ public class CurrentPrincipal(IHttpContextAccessor accessor) : ICurrentPrincipal
     public Guid AccountId => Guid.Parse(Require("account_id"));
     public string AccountType => Require("account_type");
 
-    private string Require(string claim) =>
-        User?.FindFirstValue(claim)
-        ?? throw new InvalidOperationException($"Claim '{claim}' is missing.");
+    private string Require(string claim) =>User?.FindFirstValue(claim)?? throw new InvalidOperationException($"Claim '{claim}' is missing.");
 }

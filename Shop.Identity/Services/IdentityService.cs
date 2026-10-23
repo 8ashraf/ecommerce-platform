@@ -5,7 +5,7 @@ using Shop.Identity.Entities;
 
 namespace Shop.Identity.Services;
 
-public record VerifyResult(Account Account, string AccessToken);
+public record VerifyResult(Account Account, string AccessToken, string RefreshToken);
 
 public class IdentityService(AppDbContext db, TokenService tokens)
 {
@@ -63,7 +63,70 @@ public class IdentityService(AppDbContext db, TokenService tokens)
         }
 
         await db.SaveChangesAsync();
-        return new VerifyResult(account, tokens.CreateAccessToken(user, account));//بترجع كائن VerifyResult يحتوي على الحساب والتوكن اللي اتعمل
+
+        var refresh = await IssueRefreshTokenAsync(user.Id, account.Id);
+        // بترجع كائن فيه الحساب + access token + refresh token
+        return new VerifyResult(account, tokens.CreateAccessToken(user, account), refresh);
+    }
+
+    // تجديد الجلسة: بياخد refresh token قديم ويدّي access + refresh جداد
+    public async Task<VerifyResult?> RefreshAsync(string refreshToken)
+    {
+        var hash = Hash(refreshToken);
+        var stored = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash);
+        if (stored is null) return null;
+
+        // token اتلغى قبل كده = استخدام مشبوه، نلغي كل جلسات الحساب
+        if (stored.RevokedAt is not null)
+        {
+            var sessions = await db.RefreshTokens
+                .Where(r => r.AccountId == stored.AccountId && r.RevokedAt == null)
+                .ToListAsync();
+            foreach (var s in sessions) s.RevokedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return null;
+        }
+
+        if (stored.ExpiresAt <= DateTime.UtcNow) return null;
+
+        var user = await db.Users.FindAsync(stored.UserId);
+        var account = await db.Accounts.FindAsync(stored.AccountId);
+        if (user is null || account is null || account.Status != AccountStatus.Active)
+            return null;
+
+        var newRaw = await IssueRefreshTokenAsync(user.Id, account.Id);
+        stored.RevokedAt = DateTime.UtcNow;
+        stored.ReplacedByHash = Hash(newRaw);
+        await db.SaveChangesAsync();
+
+        return new VerifyResult(account, tokens.CreateAccessToken(user, account), newRaw);
+    }
+
+    // تسجيل الخروج: بنلغي الـ refresh token
+    public async Task LogoutAsync(string refreshToken)
+    {
+        var hash = Hash(refreshToken);
+        var stored = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash);
+        if (stored is not null && stored.RevokedAt is null)
+        {
+            stored.RevokedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+    }
+
+    // بيولّد قيمة عشوائية، بيخزن hash بتاعها بس، وبيرجّع القيمة الأصلية للمستخدم
+    private async Task<string> IssueRefreshTokenAsync(Guid userId, Guid accountId)
+    {
+        var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = userId,
+            AccountId = accountId,
+            TokenHash = Hash(raw),
+            ExpiresAt = DateTime.UtcNow.AddDays(30)
+        });
+        await db.SaveChangesAsync();
+        return raw;
     }
 
     private static string Hash(string s) =>
