@@ -18,9 +18,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         b.HasDefaultSchema("identity");
 
-        b.Entity<User>().HasIndex(u => u.Phone).IsUnique();
-        b.Entity<OrganizationMember>().HasKey(m => new { m.OrgId, m.UserId });
-        b.Entity<Account>().HasIndex(a => new { a.UserId, a.Type }).IsUnique();
+        b.Entity<User>().HasIndex(u => u.Phone).IsUnique();//بتعمل index على رقم الهاتف عشان يكون فريد لكل مستخدم
+        b.Entity<OrganizationMember>().HasKey(m => new { m.OrgId, m.UserId });//بتعمل مفتاح اساسي مركب بين معرف المنظمة ومعرف المستخدم عشان يكون فريد لكل عضو في المنظمة
+        b.Entity<Account>().HasIndex(a => new { a.UserId, a.Type }).IsUnique();//بتعمل index على معرف المستخدم ونوع الحساب عشان يكون فريد لكل مستخدم ونوع حسابه
 
         b.Entity<Account>()
         .HasOne(a => a.User)

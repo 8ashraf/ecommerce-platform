@@ -67,14 +67,14 @@ builder.Services.AddSwaggerGen(o =>
 
 var app = builder.Build();
 
-// ---------- الـ Middleware (الترتيب مهم) ----------
+// ------------------------------ Middleware الترتيب مهم
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ---------- الـ Endpoints ----------
+// ------------------------------  Endpoints 
 app.MapPost("/identity/register", async (RegisterRequest req, IdentityService svc) =>
 {
     if (string.IsNullOrWhiteSpace(req.Phone))

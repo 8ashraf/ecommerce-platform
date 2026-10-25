@@ -117,7 +117,7 @@ public class IdentityService(AppDbContext db, TokenService tokens)
     // بيولّد قيمة عشوائية، بيخزن hash بتاعها بس، وبيرجّع القيمة الأصلية للمستخدم
     private async Task<string> IssueRefreshTokenAsync(Guid userId, Guid accountId)
     {
-        var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));// 64 bytes = 512 bits of randomness
         db.RefreshTokens.Add(new RefreshToken
         {
             UserId = userId,
