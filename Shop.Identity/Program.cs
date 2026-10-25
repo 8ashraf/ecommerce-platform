@@ -36,6 +36,8 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
+builder.Services.AddScoped<MerchantService>();
+
 // ---------- Swagger ----------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o =>
@@ -124,8 +126,26 @@ app.MapGet("/me", (ICurrentPrincipal me) => Results.Ok(new
     accountType = me.AccountType
 })).RequireAuthorization();
 
+app.MapPost("/identity/merchant/register",
+    async (MerchantRegisterRequest req, ICurrentPrincipal me, MerchantService svc) =>
+{
+    if (string.IsNullOrWhiteSpace(req.StoreName))
+        return Results.BadRequest(new { error = "StoreName is required" });
+
+    var result = await svc.RegisterAsync(me.UserId, req.StoreName);
+    return result is null
+        ? Results.Conflict(new { error = "Merchant account already exists" })
+        : Results.Ok(new
+        {
+            organizationId = result.OrganizationId,
+            accountId = result.AccountId,
+            status = "Pending"
+        });
+}).RequireAuthorization();
+
 app.Run();
 
-record RegisterRequest(string Phone);
+record RegisterRequest(string Phone);//record for the register request, contains the phone number of the user
 record VerifyRequest(string Phone, string Code);
 record RefreshRequest(string RefreshToken);
+record MerchantRegisterRequest(string StoreName);
