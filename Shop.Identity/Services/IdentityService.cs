@@ -64,9 +64,15 @@ public class IdentityService(AppDbContext db, TokenService tokens)
 
         await db.SaveChangesAsync();
 
-        var refresh = await IssueRefreshTokenAsync(user.Id, account.Id);
-        // بترجع كائن فيه الحساب + access token + refresh token
-        return new VerifyResult(account, tokens.CreateAccessToken(user, account), refresh);
+            // لو المستخدم موظف منصة فعّال، نصدر الـ token بحساب الموظف
+        var staff = await db.Accounts.FirstOrDefaultAsync(a =>
+            a.UserId == user.Id &&
+            a.Type == AccountType.PlatformStaff &&
+            a.Status == AccountStatus.Active);
+            var active = staff ?? account;
+
+var refresh = await IssueRefreshTokenAsync(user.Id, active.Id);
+return new VerifyResult(active, tokens.CreateAccessToken(user, active), refresh);
     }
 
     // تجديد الجلسة: بياخد refresh token قديم ويدّي access + refresh جداد

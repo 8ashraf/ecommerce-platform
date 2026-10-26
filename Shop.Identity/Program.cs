@@ -34,7 +34,11 @@ builder.Services
             ClockSkew = TimeSpan.FromSeconds(30)
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy("PlatformStaffOnly", p =>
+        p.RequireClaim("account_type", "PlatformStaff"));
+});
 
 builder.Services.AddScoped<MerchantService>();
 
@@ -142,6 +146,15 @@ app.MapPost("/identity/merchant/register",
             status = "Pending"
         });
 }).RequireAuthorization();
+
+app.MapPost("/identity/admin/merchants/{organizationId:guid}/approve",
+    async (Guid organizationId, MerchantService svc) =>
+{
+    var ok = await svc.ApproveAsync(organizationId);
+    return ok
+        ? Results.Ok(new { organizationId, status = "Active" })
+        : Results.NotFound(new { error = "Pending organization not found" });
+}).RequireAuthorization("PlatformStaffOnly");
 
 app.Run();
 
