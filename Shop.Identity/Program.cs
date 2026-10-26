@@ -127,7 +127,8 @@ app.MapGet("/me", (ICurrentPrincipal me) => Results.Ok(new
 {
     userId = me.UserId,
     accountId = me.AccountId,
-    accountType = me.AccountType
+    accountType = me.AccountType,
+    orgId = me.OrgId,
 })).RequireAuthorization();
 
 app.MapPost("/identity/merchant/register",
@@ -156,9 +157,30 @@ app.MapPost("/identity/admin/merchants/{organizationId:guid}/approve",
         : Results.NotFound(new { error = "Pending organization not found" });
 }).RequireAuthorization("PlatformStaffOnly");
 
+
+app.MapGet("/me/accounts", async (ICurrentPrincipal me, IdentityService svc) =>
+    Results.Ok(await svc.ListAccountsAsync(me.UserId))
+).RequireAuthorization();
+
+app.MapPost("/identity/switch-account",
+    async (SwitchAccountRequest req, ICurrentPrincipal me, IdentityService svc) =>
+{
+    var result = await svc.SwitchAccountAsync(me.UserId, req.AccountId);
+    return result is null
+        ? Results.StatusCode(StatusCodes.Status403Forbidden)
+        : Results.Ok(new
+        {
+            accountId = result.Account.Id,
+            type = result.Account.Type.ToString(),
+            accessToken = result.AccessToken,
+            refreshToken = result.RefreshToken
+        });
+}).RequireAuthorization();
+
 app.Run();
 
 record RegisterRequest(string Phone);//record for the register request, contains the phone number of the user
 record VerifyRequest(string Phone, string Code);
 record RefreshRequest(string RefreshToken);
 record MerchantRegisterRequest(string StoreName);
+record SwitchAccountRequest(Guid AccountId);//record for the switch account request, contains the account id of the account to switch to

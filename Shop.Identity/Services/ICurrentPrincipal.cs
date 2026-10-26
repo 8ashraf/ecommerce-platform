@@ -6,4 +6,5 @@ public interface ICurrentPrincipal
     Guid UserId { get; }
     Guid AccountId { get; }
     string AccountType { get; }
+    Guid? OrgId { get; }
 }

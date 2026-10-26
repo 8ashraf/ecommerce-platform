@@ -9,7 +9,7 @@ namespace Shop.Identity.Services;
 
 public class TokenService(IConfiguration config)//بتتقرأ من ملف الإعدادات appsettings.json
 {
-    public string CreateAccessToken(User user, Account account)
+    public string CreateAccessToken(User user, Account account, Guid? orgId = null)
     {
         var key = new SymmetricSecurityKey(//     قراءة المفتاح من الإعدادات     تحويله إلى Bytes     إنشاء كائن يمثل مفتاح التوقيع
             Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
@@ -21,6 +21,8 @@ public class TokenService(IConfiguration config)//بتتقرأ من ملف ال�
             new("account_id", account.Id.ToString()),  //account_id: معرف الحساب المرتبط بالمستخدم
             new("account_type", account.Type.ToString()) //account_type: نوع الحساب (Customer, Merchant, PlatformStaff)
         };
+        if (orgId is not null)
+            claims.Add(new("org_id", orgId.Value.ToString()));
 
         var token = new JwtSecurityToken(
             issuer: config["Jwt:Issuer"], //issuer: الجهة التي أصدرت التوكن (هنا "shop-identity")

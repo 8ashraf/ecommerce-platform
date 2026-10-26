@@ -62,17 +62,10 @@ public class IdentityService(AppDbContext db, TokenService tokens)
             db.Accounts.Add(account);
         }
 
-        await db.SaveChangesAsync();
+await db.SaveChangesAsync();
 
-            // لو المستخدم موظف منصة فعّال، نصدر الـ token بحساب الموظف
-        var staff = await db.Accounts.FirstOrDefaultAsync(a =>
-            a.UserId == user.Id &&
-            a.Type == AccountType.PlatformStaff &&
-            a.Status == AccountStatus.Active);
-            var active = staff ?? account;
-
-var refresh = await IssueRefreshTokenAsync(user.Id, active.Id);
-return new VerifyResult(active, tokens.CreateAccessToken(user, active), refresh);
+var refresh = await IssueRefreshTokenAsync(user.Id, account.Id);
+return new VerifyResult(account, tokens.CreateAccessToken(user, account), refresh);
     }
 
     // تجديد الجلسة: بياخد refresh token قديم ويدّي access + refresh جداد
@@ -105,7 +98,10 @@ return new VerifyResult(active, tokens.CreateAccessToken(user, active), refresh)
         stored.ReplacedByHash = Hash(newRaw);
         await db.SaveChangesAsync();
 
-        return new VerifyResult(account, tokens.CreateAccessToken(user, account), newRaw);
+        
+
+        var orgId = await ResolveOrgIdAsync(user.Id, account);
+        return new VerifyResult(account, tokens.CreateAccessToken(user, account, orgId), newRaw);   
     }
 
     // تسجيل الخروج: بنلغي الـ refresh token
@@ -135,6 +131,35 @@ return new VerifyResult(active, tokens.CreateAccessToken(user, active), refresh)
         return raw;
     }
 
+    public async Task<List<object>> ListAccountsAsync(Guid userId) =>
+    await db.Accounts
+        .Where(a => a.UserId == userId)
+        .Select(a => (object)new { a.Id, Type = a.Type.ToString(), Status = a.Status.ToString() })
+        .ToListAsync();
+
+    public async Task<VerifyResult?> SwitchAccountAsync(Guid userId, Guid accountId)// بيرجّع access token جديد للحساب اللي المستخدم عايز يبدّل عليه
+    {
+        var user = await db.Users.FindAsync(userId);
+        var account = await db.Accounts.FirstOrDefaultAsync(a =>
+            a.Id == accountId && a.UserId == userId && a.Status == AccountStatus.Active);
+        if (user is null || account is null) return null;
+
+        var orgId = await ResolveOrgIdAsync(userId, account);
+        var refresh = await IssueRefreshTokenAsync(user.Id, account.Id);
+        return new VerifyResult(account, tokens.CreateAccessToken(user, account, orgId), refresh);
+    }
+
+    // للتاجر بس: المتجر الفعّال اللي هو عضو فيه
+    private async Task<Guid?> ResolveOrgIdAsync(Guid userId, Account account)
+    {
+        if (account.Type != AccountType.Merchant) return null;
+        return await db.OrganizationMembers
+            .Where(m => m.UserId == userId && m.Org.Status == OrgStatus.Active)
+            .Select(m => (Guid?)m.OrgId)
+            .FirstOrDefaultAsync();
+    }
     private static string Hash(string s) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(s)));
+
+
 }
