@@ -38,6 +38,15 @@ builder.Services.AddAuthorization(o =>
 {
     o.AddPolicy("PlatformStaffOnly", p =>
         p.RequireClaim("account_type", "PlatformStaff"));
+
+    // سياسة لكل صلاحية، اسمها هو اسم الصلاحية نفسها
+    foreach (var perm in Permissions.All)
+    {
+        o.AddPolicy(perm, p =>
+        {
+            p.RequireClaim("perms", perm);
+        });
+    }
 });
 
 builder.Services.AddScoped<MerchantService>();
@@ -129,6 +138,7 @@ app.MapGet("/me", (ICurrentPrincipal me) => Results.Ok(new
     accountId = me.AccountId,
     accountType = me.AccountType,
     orgId = me.OrgId,
+    perms = me.Perms,
 })).RequireAuthorization();
 
 app.MapPost("/identity/merchant/register",
@@ -177,10 +187,18 @@ app.MapPost("/identity/switch-account",
         });
 }).RequireAuthorization();
 
+app.MapGet("/merchant/catalog-check", (ICurrentPrincipal me) =>
+    Results.Ok(new { message = "You can manage the catalog", orgId = me.OrgId }))
+    .RequireAuthorization(Permissions.CatalogWrite);
+
+app.MapGet("/merchant/finance-check", (ICurrentPrincipal me) =>
+    Results.Ok(new { message = "You can see finance", orgId = me.OrgId }))
+    .RequireAuthorization(Permissions.FinanceRead);
+
 app.Run();
 
-record RegisterRequest(string Phone);//record for the register request, contains the phone number of the user
+record RegisterRequest(string Phone);
 record VerifyRequest(string Phone, string Code);
 record RefreshRequest(string RefreshToken);
 record MerchantRegisterRequest(string StoreName);
-record SwitchAccountRequest(Guid AccountId);//record for the switch account request, contains the account id of the account to switch to
+record SwitchAccountRequest(Guid AccountId);

@@ -7,4 +7,5 @@ public interface ICurrentPrincipal
     Guid AccountId { get; }
     string AccountType { get; }
     Guid? OrgId { get; }
+    IReadOnlyList<string> Perms { get; }
 }

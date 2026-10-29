@@ -25,6 +25,8 @@ public class CurrentPrincipal(IHttpContextAccessor accessor) : ICurrentPrincipal
             return null;
         }
     }
+    public IReadOnlyList<string> Perms =>
+    User?.FindAll("perms").Select(c => c.Value).ToArray() ?? Array.Empty<string>();
 
     private string Require(string claim) =>User?.FindFirstValue(claim)?? throw new InvalidOperationException($"Claim '{claim}' is missing.");
 }

@@ -100,8 +100,8 @@ return new VerifyResult(account, tokens.CreateAccessToken(user, account), refres
 
         
 
-        var orgId = await ResolveOrgIdAsync(user.Id, account);
-        return new VerifyResult(account, tokens.CreateAccessToken(user, account, orgId), newRaw);   
+        var (orgId, perms) = await ResolveOrgContextAsync(user.Id, account);
+        return new VerifyResult(account, tokens.CreateAccessToken(user, account, orgId, perms), newRaw); 
     }
 
     // تسجيل الخروج: بنلغي الـ refresh token
@@ -144,20 +144,27 @@ return new VerifyResult(account, tokens.CreateAccessToken(user, account), refres
             a.Id == accountId && a.UserId == userId && a.Status == AccountStatus.Active);
         if (user is null || account is null) return null;
 
-        var orgId = await ResolveOrgIdAsync(userId, account);
+        var (orgId, perms) = await ResolveOrgContextAsync(userId, account);
         var refresh = await IssueRefreshTokenAsync(user.Id, account.Id);
-        return new VerifyResult(account, tokens.CreateAccessToken(user, account, orgId), refresh);
+        return new VerifyResult(account, tokens.CreateAccessToken(user, account, orgId, perms), refresh);
     }
 
-    // للتاجر بس: المتجر الفعّال اللي هو عضو فيه
-    private async Task<Guid?> ResolveOrgIdAsync(Guid userId, Account account)
-    {
-        if (account.Type != AccountType.Merchant) return null;
-        return await db.OrganizationMembers
-            .Where(m => m.UserId == userId && m.Org.Status == OrgStatus.Active)
-            .Select(m => (Guid?)m.OrgId)
-            .FirstOrDefaultAsync();
-    }
+private async Task<(Guid? OrgId, IReadOnlyList<string> Perms)> ResolveOrgContextAsync(
+    Guid userId, Account account)
+{
+    if (account.Type != AccountType.Merchant)
+        return (null, Array.Empty<string>());
+
+    var m = await db.OrganizationMembers
+        .Where(x => x.UserId == userId && x.Org.Status == OrgStatus.Active)
+        .Select(x => new { x.OrgId, x.Role })
+        .FirstOrDefaultAsync();
+
+    if (m is null)
+        return (null, Array.Empty<string>());
+
+    return (m.OrgId, Permissions.ForRole(m.Role));
+}
     private static string Hash(string s) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(s)));
 

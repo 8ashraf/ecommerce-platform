@@ -9,12 +9,12 @@ namespace Shop.Identity.Services;
 
 public class TokenService(IConfiguration config)//بتتقرأ من ملف الإعدادات appsettings.json
 {
-    public string CreateAccessToken(User user, Account account, Guid? orgId = null)
+public string CreateAccessToken(User user, Account account, Guid? orgId = null, IEnumerable<string>? perms = null)
     {
         var key = new SymmetricSecurityKey(//     قراءة المفتاح من الإعدادات     تحويله إلى Bytes     إنشاء كائن يمثل مفتاح التوقيع
             Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
 
-    var claims = new List<Claim>
+        var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),//sub: Subject claim, يمثل معرف المستخدم
             new("principal_type", "Human"),//principal_type: نوع الكيان الممثل للمستخدم (هنا "Human" يعني إنسان)
@@ -23,6 +23,14 @@ public class TokenService(IConfiguration config)//بتتقرأ من ملف ال�
         };
         if (orgId is not null)
             claims.Add(new("org_id", orgId.Value.ToString()));
+
+        if (perms != null)
+        {
+            foreach (var p in perms)
+            {
+            claims.Add(new Claim("perms", p));
+            }
+        }
 
         var token = new JwtSecurityToken(
             issuer: config["Jwt:Issuer"], //issuer: الجهة التي أصدرت التوكن (هنا "shop-identity")
